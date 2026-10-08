@@ -193,3 +193,17 @@ def test_dem_is_registered_to_the_study(tmp_path):
             worst = max(worst, abs(vals[r, c] - height(la, lo)))
     # Two bilinear resamplings of a field with ~4.5 km wavelength at ~1 m/px.
     assert worst < 15.0, worst
+
+
+def test_relative_dem_is_centred_on_zero(tmp_path):
+    img = make_geographic_raster(tmp_path / "img.tif", 26.0, 3.6, 0.05, 0.05, (300, 300), lambda la, lo: la * 0 + 1)
+    dem = make_geographic_raster(tmp_path / "dem.tif", 26.0, 3.6, 0.06, 0.06, (200, 200),
+                                 lambda la, lo: -2000.0 + 300.0 * np.sin(np.radians(lo - 3.6) * 2000))
+    out = tmp_path / "out"
+    PlanetStudyTiler(img).tile(str(out), name="rel", placeholder_thumbnail=True)
+    tiler = PlanetDemTiler(dem, str(out / "index_rel.wtml"), relative=True)
+    tiler.tile()
+    assert -2100 < tiler.mean_height_m < -1900
+    assert abs(float(tiler.dem.mean())) < 1e-3
+    vals = np.fromfile(out / "DEM" / "0" / "0" / "0_0.dem", dtype="<f4")
+    assert vals.min() > -400 and vals.max() < 400

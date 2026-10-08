@@ -781,6 +781,11 @@ def tile_planet_dem_getparser(parser):
         help="Subtract this from every DEM sample, e.g. the body radius for DEMs that store radius (default: 0)",
     )
     parser.add_argument(
+        "--relative",
+        action="store_true",
+        help="Store heights relative to the study area's mean, so the study sits on a base map without elevation",
+    )
+    parser.add_argument(
         "dem_path",
         metavar="DEM",
         help="Elevation raster in meters (GeoTIFF, PDS .IMG, or anything GDAL reads)",
@@ -795,9 +800,11 @@ def tile_planet_dem_getparser(parser):
 def tile_planet_dem_impl(settings):
     from .geo_tile import PlanetDemTiler
 
-    tiler = PlanetDemTiler(settings.dem_path, settings.wtml_path, offset_m=settings.offset)
+    tiler = PlanetDemTiler(settings.dem_path, settings.wtml_path, offset_m=settings.offset, relative=settings.relative)
     n = tiler.tile(cli_progress=True)
     print(f"Wrote {n} DEM tiles and updated {settings.wtml_path}.")
+    if settings.relative:
+        print(f"Heights are relative to the area's mean of {tiler.mean_height_m:.1f} m.")
 
 
 # "tile_wwtl" subcommand

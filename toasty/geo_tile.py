@@ -353,9 +353,16 @@ class PlanetDemTiler:
     fill_search_px : int
         How far (pixels) GDAL may reach to fill holes in the DEM. Anything
         still empty is set to the DEM's mean height.
+    relative : bool
+        Store heights relative to the study area's mean instead of the
+        reference sphere. Use this when the study is draped over a global
+        map without elevation: real terrain can sit kilometres off the
+        reference radius (about −2 km at Apollo 15), and drawn at its true
+        height the study would show parallax against the flat base map in
+        tilted views. Relative heights keep the relief and sit on the base.
     """
 
-    def __init__(self, dem_path, wtml_path, offset_m=0.0, fill_search_px=100):
+    def __init__(self, dem_path, wtml_path, offset_m=0.0, fill_search_px=100, relative=False):
         gdal, _osr = _require_gdal()
         self.dem_path = dem_path
         self.wtml_path = wtml_path
@@ -395,6 +402,9 @@ class PlanetDemTiler:
         if np.isnan(dem).all():
             raise ValueError(f"{dem_path} does not overlap the study area")
         dem[np.isnan(dem)] = np.nanmean(dem)
+        self.mean_height_m = float(dem.mean())
+        if relative:
+            dem -= np.float32(self.mean_height_m)
         self.dem = np.ascontiguousarray(dem[:, ::-1]) if g.get("flipped_x", True) else dem
 
     def _tile_values(self, level_dem, level_scale, gx0, gy0, pos):
