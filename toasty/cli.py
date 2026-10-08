@@ -722,22 +722,34 @@ def tile_planet_study_getparser(parser):
         help="Skip thumbnailing the input (saves memory for very large inputs)",
     )
     parser.add_argument(
+        "--radius",
+        metavar="METERS",
+        type=float,
+        help="Body radius (default: the semi-major axis of the input's CRS)",
+    )
+    parser.add_argument(
+        "--resolution",
+        metavar="METERS",
+        type=float,
+        help="Output pixel size (default: the input's native resolution)",
+    )
+    parser.add_argument(
         "--outdir",
         metavar="PATH",
         default=".",
         help="The root directory of the output tile pyramid (default: %(default)s)",
     )
     parser.add_argument(
-        "geotiff_path",
-        metavar="GEOTIFF",
-        help="Ortho-projected planetary GeoTIFF (or any GDAL-readable raster)",
+        "image_path",
+        metavar="IMAGE",
+        help="Georeferenced planetary raster (GeoTIFF, PDS .IMG, ISIS cube, or anything GDAL reads)",
     )
 
 
 def tile_planet_study_impl(settings):
     from .geo_tile import PlanetStudyTiler
 
-    tiler = PlanetStudyTiler(settings.geotiff_path)
+    tiler = PlanetStudyTiler(settings.image_path, radius_m=settings.radius, resolution_m=settings.resolution)
     builder = tiler.tile(
         settings.outdir,
         name=settings.name,
@@ -745,16 +757,16 @@ def tile_planet_study_impl(settings):
         cli_progress=True,
     )
     imgset = builder.imgset
+    print(f'Successfully tiled "{settings.image_path}" at level {imgset.tile_levels}.')
     print(
-        f'Successfully tiled "{settings.geotiff_path}" at level {imgset.tile_levels}.'
-    )
-    print(
-        f"Center: lon={imgset.center_x:.6f}°  lat={imgset.center_y:.6f}°  "
-        f"scale={imgset.base_degrees_per_tile / (2**imgset.tile_levels) / 256 * 3600:.3f}\"/px"
+        f"Center: {tiler.center_lat:.6f}° lat, {tiler.center_lon:.6f}° E lon; "
+        f"{tiler.resolution_m:.3f} m/px; {tiler.width}x{tiler.height} px"
     )
     print("To generate parent tiles, run:")
     print()
     print(f"   toasty cascade --start {imgset.tile_levels} {settings.outdir}")
+    print()
+    print("To add elevation, run tile-planet-dem with a DEM and this pyramid's index_rel.wtml.")
 
 
 # "tile_planet_dem" subcommand
@@ -762,31 +774,30 @@ def tile_planet_study_impl(settings):
 
 def tile_planet_dem_getparser(parser):
     parser.add_argument(
-        "--outdir",
-        metavar="PATH",
-        default=None,
-        help=(
-            "Directory containing the companion imagery pyramid "
-            "(default: directory of the WTML file)"
-        ),
+        "--offset",
+        metavar="METERS",
+        type=float,
+        default=0.0,
+        help="Subtract this from every DEM sample, e.g. the body radius for DEMs that store radius (default: 0)",
     )
     parser.add_argument(
         "dem_path",
         metavar="DEM",
-        help="Planetary DEM raster (GeoTIFF, PDS .IMG, or any GDAL-readable file)",
+        help="Elevation raster in meters (GeoTIFF, PDS .IMG, or anything GDAL reads)",
     )
     parser.add_argument(
         "wtml_path",
         metavar="WTML",
-        help="Path to the index_rel.wtml produced by tile-planet-study",
+        help="The index_rel.wtml written by tile-planet-study",
     )
 
 
 def tile_planet_dem_impl(settings):
     from .geo_tile import PlanetDemTiler
 
-    tiler = PlanetDemTiler(settings.dem_path, settings.wtml_path)
-    tiler.tile(cli_progress=True)
+    tiler = PlanetDemTiler(settings.dem_path, settings.wtml_path, offset_m=settings.offset)
+    n = tiler.tile(cli_progress=True)
+    print(f"Wrote {n} DEM tiles and updated {settings.wtml_path}.")
 
 
 # "tile_wwtl" subcommand
