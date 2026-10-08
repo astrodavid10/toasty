@@ -706,6 +706,89 @@ def tile_study_impl(settings):
     print(f"   toasty cascade --start {builder.imgset.tile_levels} {settings.outdir}")
 
 
+# "tile_planet_study" subcommand
+
+
+def tile_planet_study_getparser(parser):
+    parser.add_argument(
+        "--name",
+        metavar="NAME",
+        default="Toasty",
+        help="The image name to embed in the output WTML (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--placeholder-thumbnail",
+        action="store_true",
+        help="Skip thumbnailing the input (saves memory for very large inputs)",
+    )
+    parser.add_argument(
+        "--outdir",
+        metavar="PATH",
+        default=".",
+        help="The root directory of the output tile pyramid (default: %(default)s)",
+    )
+    parser.add_argument(
+        "geotiff_path",
+        metavar="GEOTIFF",
+        help="Ortho-projected planetary GeoTIFF (or any GDAL-readable raster)",
+    )
+
+
+def tile_planet_study_impl(settings):
+    from .geo_tile import PlanetStudyTiler
+
+    tiler = PlanetStudyTiler(settings.geotiff_path)
+    builder = tiler.tile(
+        settings.outdir,
+        name=settings.name,
+        placeholder_thumbnail=settings.placeholder_thumbnail,
+        cli_progress=True,
+    )
+    imgset = builder.imgset
+    print(
+        f'Successfully tiled "{settings.geotiff_path}" at level {imgset.tile_levels}.'
+    )
+    print(
+        f"Center: lon={imgset.center_x:.6f}°  lat={imgset.center_y:.6f}°  "
+        f"scale={imgset.base_degrees_per_tile / (2**imgset.tile_levels) / 256 * 3600:.3f}\"/px"
+    )
+    print("To generate parent tiles, run:")
+    print()
+    print(f"   toasty cascade --start {imgset.tile_levels} {settings.outdir}")
+
+
+# "tile_planet_dem" subcommand
+
+
+def tile_planet_dem_getparser(parser):
+    parser.add_argument(
+        "--outdir",
+        metavar="PATH",
+        default=None,
+        help=(
+            "Directory containing the companion imagery pyramid "
+            "(default: directory of the WTML file)"
+        ),
+    )
+    parser.add_argument(
+        "dem_path",
+        metavar="DEM",
+        help="Planetary DEM raster (GeoTIFF, PDS .IMG, or any GDAL-readable file)",
+    )
+    parser.add_argument(
+        "wtml_path",
+        metavar="WTML",
+        help="Path to the index_rel.wtml produced by tile-planet-study",
+    )
+
+
+def tile_planet_dem_impl(settings):
+    from .geo_tile import PlanetDemTiler
+
+    tiler = PlanetDemTiler(settings.dem_path, settings.wtml_path)
+    tiler.tile(cli_progress=True)
+
+
 # "tile_wwtl" subcommand
 
 
